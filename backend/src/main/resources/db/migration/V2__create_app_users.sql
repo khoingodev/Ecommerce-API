@@ -1,0 +1,6 @@
+CREATE TABLE app_users (
+    id BIGSERIAL PRIMARY KEY,
+    email VARCHAR(120) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(16) NOT NULL DEFAULT 'USER' CHECK (role IN ('USER', 'ADMIN'))
+);
