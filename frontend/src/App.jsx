@@ -1,0 +1,92 @@
+import { useEffect, useMemo, useState } from 'react';
+import { ArrowRight, Minus, Plus, Search, ShoppingBag, Sparkles, Trash2, X } from 'lucide-react';
+
+const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080';
+const API_USERNAME = import.meta.env.VITE_API_USERNAME ?? 'admin';
+const API_PASSWORD = import.meta.env.VITE_API_PASSWORD ?? 'change-me';
+
+const headers = () => ({
+  Authorization: `Basic ${btoa(`${API_USERNAME}:${API_PASSWORD}`)}`,
+  'Content-Type': 'application/json',
+});
+
+function App() {
+  const [products, setProducts] = useState([]);
+  const [query, setQuery] = useState('');
+  const [cart, setCart] = useState([]);
+  const [cartOpen, setCartOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    fetch(`${API_URL}/api/products`, { headers: headers() })
+      .then((response) => {
+        if (!response.ok) throw new Error();
+        return response.json();
+      })
+      .then(setProducts)
+      .catch(() => setMessage('Backend is unavailable. Start Spring Boot on port 8080.'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const visibleProducts = useMemo(() => products.filter((product) =>
+    product.name.toLowerCase().includes(query.toLowerCase().trim())), [products, query]);
+  const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+  function add(product) {
+    setCart((current) => {
+      const existing = current.find((item) => item.id === product.id);
+      if (existing) return current.map((item) => item.id === product.id
+        ? { ...item, quantity: Math.min(item.quantity + 1, product.stockQuantity) } : item);
+      return [...current, { ...product, quantity: 1 }];
+    });
+    setCartOpen(true);
+  }
+
+  function change(id, amount) {
+    setCart((current) => current.map((item) => item.id === id
+      ? { ...item, quantity: item.quantity + amount } : item).filter((item) => item.quantity > 0));
+  }
+
+  async function checkout() {
+    try {
+      for (const item of cart) {
+        const response = await fetch(`${API_URL}/api/orders`, {
+          method: 'POST', headers: headers(),
+          body: JSON.stringify({ productId: item.id, quantity: item.quantity }),
+        });
+        if (!response.ok) throw new Error();
+      }
+      setCart([]); setCartOpen(false); setMessage('Order placed successfully.');
+    } catch { setMessage('Checkout failed. Check product stock.'); }
+    window.setTimeout(() => setMessage(''), 2400);
+  }
+
+  return <div className="app-shell">
+    <header className="topbar">
+      <a className="brand" href="/"><span className="brand-mark"><Sparkles size={16} /></span>Northstar <span className="muted">/ market</span></a>
+      <nav><a href="#catalog">Catalog</a><a href="#about">Our edit</a></nav>
+      <button className="bag-button" onClick={() => setCartOpen(true)}><ShoppingBag size={17} /> Bag <b>{itemCount}</b></button>
+    </header>
+    <main>
+      <section className="hero" id="about">
+        <div><p className="eyebrow">Curated daily goods / 01</p><h1>Useful things, <em>beautifully</em> chosen.</h1><p className="hero-text">A small, considered collection for workdays, weekends, and everywhere in between.</p><a className="text-link" href="#catalog">Explore the collection <ArrowRight size={16} /></a></div>
+        <div className="hero-art"><i className="sun" /><i className="vase" /><span>FORM / FUNCTION</span></div>
+      </section>
+      <section className="catalog" id="catalog">
+        <div className="section-heading"><div><p className="eyebrow">The collection</p><h2>Objects with a point of view.</h2></div><label className="search"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search products" /></label></div>
+        {message && <p className="message">{message}</p>}
+        {loading && <p className="message">Loading the collection...</p>}
+        <div className="product-grid">{visibleProducts.map((product, index) => <article className="product-card" key={product.id}>
+          <div className={`product-image image-${index % 3 + 1}`}><span>{String(index + 1).padStart(2, '0')}</span></div>
+          <div className="product-meta"><div><h3>{product.name}</h3><p>{product.stockQuantity} available</p></div><strong>${Number(product.price).toFixed(2)}</strong></div>
+          <button className="add-button" disabled={!product.stockQuantity} onClick={() => add(product)}>{product.stockQuantity ? 'Add to bag' : 'Sold out'} <Plus size={15} /></button>
+        </article>)}</div>
+      </section>
+    </main>
+    {cartOpen && <div className="backdrop" onClick={() => setCartOpen(false)}><aside className="drawer" onClick={(event) => event.stopPropagation()}><div className="drawer-title"><div><p className="eyebrow">Your selection</p><h2>Shopping bag</h2></div><button onClick={() => setCartOpen(false)} aria-label="Close bag"><X /></button></div>{!cart.length ? <div className="empty"><ShoppingBag size={30} /><p>Your bag is waiting.</p></div> : <><div className="cart-items">{cart.map((item) => <div className="cart-item" key={item.id}><div className={`thumb image-${item.id % 3 + 1}`} /><div><strong>{item.name}</strong><p>${Number(item.price).toFixed(2)}</p><div className="quantity"><button onClick={() => change(item.id, -1)}><Minus size={13} /></button><b>{item.quantity}</b><button onClick={() => change(item.id, 1)}><Plus size={13} /></button></div></div><button className="remove" onClick={() => setCart((current) => current.filter((cartItem) => cartItem.id !== item.id))}><Trash2 size={15} /></button></div>)}</div><div className="cart-footer"><div><span>Total</span><strong>${total.toFixed(2)}</strong></div><button className="checkout" onClick={checkout}>Checkout <ArrowRight size={16} /></button></div></>}</aside></div>}
+  </div>;
+}
+
+export default App;
