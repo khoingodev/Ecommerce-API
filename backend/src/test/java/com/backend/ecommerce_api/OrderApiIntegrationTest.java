@@ -89,4 +89,20 @@ class OrderApiIntegrationTest {
                         .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isForbidden());
     }
+
+    @Test
+    void authenticatedUserCanReadOwnOrders() throws Exception {
+        mockMvc.perform(post("/api/orders")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"productId\":" + productId + ",\"quantity\":1}"))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/api/orders/mine")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].productId").value(productId))
+                .andExpect(jsonPath("$[0].quantity").value(1));
+    }
 }

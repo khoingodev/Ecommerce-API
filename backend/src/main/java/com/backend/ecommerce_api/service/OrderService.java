@@ -6,10 +6,12 @@ import com.backend.ecommerce_api.dto.AdminOrderResponseDto;
 import com.backend.ecommerce_api.exception.OrderNotFoundException;
 import com.backend.ecommerce_api.entity.Order;
 import com.backend.ecommerce_api.entity.Product;
+import com.backend.ecommerce_api.entity.User;
 import com.backend.ecommerce_api.exception.InsufficientStockException;
 import com.backend.ecommerce_api.exception.ProductNotFoundException;
 import com.backend.ecommerce_api.repository.OrderRepository;
 import com.backend.ecommerce_api.repository.ProductRepository;
+import com.backend.ecommerce_api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,9 +29,15 @@ public class OrderService {
 
     private final ProductRepository productRepository;
     private final OrderRepository orderRepository;
+    private final UserRepository userRepository;
 
     @Transactional
     public OrderResponseDto createOrder(OrderRequestDto request) {
+        return createOrder(request, null);
+    }
+
+    @Transactional
+    public OrderResponseDto createOrder(OrderRequestDto request, String userEmail) {
         validateRequest(request);
 
         Product product = productRepository.findByIdForUpdate(request.getProductId())
@@ -42,14 +50,25 @@ public class OrderService {
         product.setStockQuantity(product.getStockQuantity() - request.getQuantity());
         productRepository.save(product);
 
+        User user = userEmail == null ? null : userRepository.findByEmailIgnoreCase(userEmail)
+            .orElseThrow(() -> new IllegalArgumentException("Authenticated user not found"));
+
         Order order = Order.builder()
                 .product(product)
+            .user(user)
                 .quantity(request.getQuantity())
                 .totalAmount(product.getPrice().multiply(BigDecimal.valueOf(request.getQuantity())))
                 .status(PENDING_STATUS)
                 .build();
 
         return OrderResponseDto.from(orderRepository.save(order));
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrderResponseDto> findMine(String userEmail) {
+        return orderRepository.findByUserEmailIgnoreCaseOrderByIdDesc(userEmail).stream()
+                .map(OrderResponseDto::from)
+                .toList();
     }
 
     @Transactional(readOnly = true)

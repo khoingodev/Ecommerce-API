@@ -24,12 +24,15 @@ CREATE TABLE IF NOT EXISTS products (
 CREATE TABLE IF NOT EXISTS orders (
     id BIGSERIAL PRIMARY KEY,
     product_id BIGINT NOT NULL,
+    user_id BIGINT,
     quantity INTEGER NOT NULL CHECK (quantity > 0),
     total_amount NUMERIC(19, 2) NOT NULL CHECK (total_amount >= 0),
     status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_orders_product
-        FOREIGN KEY (product_id) REFERENCES products (id)
+        FOREIGN KEY (product_id) REFERENCES products (id),
+    CONSTRAINT fk_orders_user
+        FOREIGN KEY (user_id) REFERENCES app_users (id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_orders_product_id
@@ -37,6 +40,9 @@ CREATE INDEX IF NOT EXISTS idx_orders_product_id
 
 CREATE INDEX IF NOT EXISTS idx_orders_status
     ON orders (status);
+
+CREATE INDEX IF NOT EXISTS idx_orders_user_id
+    ON orders (user_id);
 
 INSERT INTO products (name, price, stock_quantity)
 SELECT 'Demo product', 99.99, 10
