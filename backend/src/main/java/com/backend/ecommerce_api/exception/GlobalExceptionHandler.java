@@ -15,6 +15,11 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.NOT_FOUND, exception.getMessage());
     }
 
+    @ExceptionHandler(OrderNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleOrderNotFound(OrderNotFoundException exception) {
+        return error(HttpStatus.NOT_FOUND, exception.getMessage());
+    }
+
     @ExceptionHandler({InsufficientStockException.class, IllegalArgumentException.class})
     public ResponseEntity<ErrorResponse> handleBadRequest(RuntimeException exception) {
         return error(HttpStatus.BAD_REQUEST, exception.getMessage());

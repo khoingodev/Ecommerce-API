@@ -16,6 +16,9 @@ function App() {
   const [authMode, setAuthMode] = useState('login');
   const [authForm, setAuthForm] = useState({ email: '', password: '' });
   const [token, setToken] = useState(() => localStorage.getItem('accessToken'));
+  const [role, setRole] = useState(() => localStorage.getItem('role'));
+  const [adminOpen, setAdminOpen] = useState(false);
+  const [adminOrders, setAdminOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
 
@@ -79,7 +82,9 @@ function App() {
       const body = await response.json();
       if (!response.ok) throw new Error(body.message ?? 'Authentication failed');
       localStorage.setItem('accessToken', body.accessToken);
+      localStorage.setItem('role', body.role);
       setToken(body.accessToken);
+      setRole(body.role);
       setAuthOpen(false);
       setAuthForm({ email: '', password: '' });
       setMessage(authMode === 'login' ? 'Welcome back.' : 'Account created. You are signed in.');
@@ -91,7 +96,9 @@ function App() {
 
   function signOut() {
     localStorage.removeItem('accessToken');
+    localStorage.removeItem('role');
     setToken(null);
+    setRole(null);
     setMessage('Signed out.');
   }
 
@@ -99,7 +106,7 @@ function App() {
     <header className="topbar">
       <a className="brand" href="/"><span className="brand-mark"><Sparkles size={16} /></span>Northstar <span className="muted">/ market</span></a>
       <nav><a href="#catalog">Catalog</a><a href="#about">Our edit</a></nav>
-      <div className="topbar-actions"><button className="account-button" onClick={() => token ? signOut() : setAuthOpen(true)}>{token ? 'Sign out' : <><LogIn size={16} /> Sign in</>}</button><button className="bag-button" onClick={() => setCartOpen(true)}><ShoppingBag size={17} /> Bag <b>{itemCount}</b></button></div>
+      <div className="topbar-actions">{role === 'ADMIN' && <button className="account-button" onClick={async () => { setAdminOpen(true); const response = await fetch(`${API_URL}/api/admin/orders`, { headers: headers(token) }); if (response.ok) setAdminOrders(await response.json()); }} >Admin</button>}<button className="account-button" onClick={() => token ? signOut() : setAuthOpen(true)}>{token ? 'Sign out' : <><LogIn size={16} /> Sign in</>}</button><button className="bag-button" onClick={() => setCartOpen(true)}><ShoppingBag size={17} /> Bag <b>{itemCount}</b></button></div>
     </header>
     <main>
       <section className="hero" id="about">
@@ -119,6 +126,7 @@ function App() {
     </main>
     {cartOpen && <div className="backdrop" onClick={() => setCartOpen(false)}><aside className="drawer" onClick={(event) => event.stopPropagation()}><div className="drawer-title"><div><p className="eyebrow">Your selection</p><h2>Shopping bag</h2></div><button onClick={() => setCartOpen(false)} aria-label="Close bag"><X /></button></div>{!cart.length ? <div className="empty"><ShoppingBag size={30} /><p>Your bag is waiting.</p></div> : <><div className="cart-items">{cart.map((item) => <div className="cart-item" key={item.id}><div className={`thumb image-${item.id % 3 + 1}`} /><div><strong>{item.name}</strong><p>${Number(item.price).toFixed(2)}</p><div className="quantity"><button onClick={() => change(item.id, -1)}><Minus size={13} /></button><b>{item.quantity}</b><button onClick={() => change(item.id, 1)}><Plus size={13} /></button></div></div><button className="remove" onClick={() => setCart((current) => current.filter((cartItem) => cartItem.id !== item.id))}><Trash2 size={15} /></button></div>)}</div><div className="cart-footer"><div><span>Total</span><strong>${total.toFixed(2)}</strong></div><button className="checkout" onClick={checkout}>Checkout <ArrowRight size={16} /></button></div></>}</aside></div>}
     {authOpen && <div className="backdrop" onClick={() => setAuthOpen(false)}><section className="auth-panel" onClick={(event) => event.stopPropagation()}><button className="auth-close" onClick={() => setAuthOpen(false)} aria-label="Close authentication"><X /></button><p className="eyebrow">Northstar account</p><h2>{authMode === 'login' ? 'Welcome back.' : 'Join the market.'}</h2><form onSubmit={authenticate}><label>Email<input type="email" required value={authForm.email} onChange={(event) => setAuthForm({ ...authForm, email: event.target.value })} /></label><label>Password<input type="password" required minLength="8" value={authForm.password} onChange={(event) => setAuthForm({ ...authForm, password: event.target.value })} /></label><button className="checkout" type="submit">{authMode === 'login' ? <><LogIn size={16} /> Sign in</> : <><UserPlus size={16} /> Create account</>}</button></form><button className="switch-auth" onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}>{authMode === 'login' ? 'Need an account? Register' : 'Already have an account? Sign in'}</button></section></div>}
+    {adminOpen && <div className="backdrop" onClick={() => setAdminOpen(false)}><section className="admin-panel" onClick={(event) => event.stopPropagation()}><div className="drawer-title"><div><p className="eyebrow">Restricted workspace</p><h2>Order desk</h2></div><button onClick={() => setAdminOpen(false)} aria-label="Close admin panel"><X /></button></div>{adminOrders.length === 0 ? <p className="message">No orders yet.</p> : <div className="admin-orders">{adminOrders.map((order) => <div className="admin-order" key={order.orderId}><div><strong>Order #{order.orderId}</strong><p>{order.productName} x {order.quantity}</p></div><span className={`status status-${order.status.toLowerCase()}`}>{order.status}</span></div>)}</div>}</section></div>}
   </div>;
 }
 

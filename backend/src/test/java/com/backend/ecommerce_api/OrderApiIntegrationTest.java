@@ -81,4 +81,12 @@ class OrderApiIntegrationTest {
                         .content("{\"productId\":" + productId + ",\"quantity\":2}"))
                 .andExpect(status().isUnauthorized());
     }
+
+    @Test
+    void regularUserCannotAccessAdminOrders() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/api/admin/orders")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isForbidden());
+    }
 }
