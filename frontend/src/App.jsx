@@ -1,12 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Minus, Plus, Search, ShoppingBag, Sparkles, Trash2, X } from 'lucide-react';
+import { ArrowRight, LogIn, Minus, Plus, Search, ShoppingBag, Sparkles, Trash2, UserPlus, X } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080';
-const API_USERNAME = import.meta.env.VITE_API_USERNAME ?? 'admin';
-const API_PASSWORD = import.meta.env.VITE_API_PASSWORD ?? 'change-me';
-
-const headers = () => ({
-  Authorization: `Basic ${btoa(`${API_USERNAME}:${API_PASSWORD}`)}`,
+const headers = (token) => ({
+  ...(token ? { Authorization: `Bearer ${token}` } : {}),
   'Content-Type': 'application/json',
 });
 
@@ -15,6 +12,10 @@ function App() {
   const [query, setQuery] = useState('');
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState('login');
+  const [authForm, setAuthForm] = useState({ email: '', password: '' });
+  const [token, setToken] = useState(() => localStorage.getItem('accessToken'));
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
 
@@ -50,10 +51,15 @@ function App() {
   }
 
   async function checkout() {
+    if (!token) {
+      setAuthOpen(true);
+      setMessage('Sign in before checkout.');
+      return;
+    }
     try {
       for (const item of cart) {
         const response = await fetch(`${API_URL}/api/orders`, {
-          method: 'POST', headers: headers(),
+          method: 'POST', headers: headers(token),
           body: JSON.stringify({ productId: item.id, quantity: item.quantity }),
         });
         if (!response.ok) throw new Error();
@@ -63,11 +69,37 @@ function App() {
     window.setTimeout(() => setMessage(''), 2400);
   }
 
+  async function authenticate(event) {
+    event.preventDefault();
+    const endpoint = authMode === 'login' ? 'login' : 'register';
+    try {
+      const response = await fetch(`${API_URL}/api/auth/${endpoint}`, {
+        method: 'POST', headers: headers(), body: JSON.stringify(authForm),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.message ?? 'Authentication failed');
+      localStorage.setItem('accessToken', body.accessToken);
+      setToken(body.accessToken);
+      setAuthOpen(false);
+      setAuthForm({ email: '', password: '' });
+      setMessage(authMode === 'login' ? 'Welcome back.' : 'Account created. You are signed in.');
+    } catch (error) {
+      setMessage(error.message);
+    }
+    window.setTimeout(() => setMessage(''), 2600);
+  }
+
+  function signOut() {
+    localStorage.removeItem('accessToken');
+    setToken(null);
+    setMessage('Signed out.');
+  }
+
   return <div className="app-shell">
     <header className="topbar">
       <a className="brand" href="/"><span className="brand-mark"><Sparkles size={16} /></span>Northstar <span className="muted">/ market</span></a>
       <nav><a href="#catalog">Catalog</a><a href="#about">Our edit</a></nav>
-      <button className="bag-button" onClick={() => setCartOpen(true)}><ShoppingBag size={17} /> Bag <b>{itemCount}</b></button>
+      <div className="topbar-actions"><button className="account-button" onClick={() => token ? signOut() : setAuthOpen(true)}>{token ? 'Sign out' : <><LogIn size={16} /> Sign in</>}</button><button className="bag-button" onClick={() => setCartOpen(true)}><ShoppingBag size={17} /> Bag <b>{itemCount}</b></button></div>
     </header>
     <main>
       <section className="hero" id="about">
@@ -86,6 +118,7 @@ function App() {
       </section>
     </main>
     {cartOpen && <div className="backdrop" onClick={() => setCartOpen(false)}><aside className="drawer" onClick={(event) => event.stopPropagation()}><div className="drawer-title"><div><p className="eyebrow">Your selection</p><h2>Shopping bag</h2></div><button onClick={() => setCartOpen(false)} aria-label="Close bag"><X /></button></div>{!cart.length ? <div className="empty"><ShoppingBag size={30} /><p>Your bag is waiting.</p></div> : <><div className="cart-items">{cart.map((item) => <div className="cart-item" key={item.id}><div className={`thumb image-${item.id % 3 + 1}`} /><div><strong>{item.name}</strong><p>${Number(item.price).toFixed(2)}</p><div className="quantity"><button onClick={() => change(item.id, -1)}><Minus size={13} /></button><b>{item.quantity}</b><button onClick={() => change(item.id, 1)}><Plus size={13} /></button></div></div><button className="remove" onClick={() => setCart((current) => current.filter((cartItem) => cartItem.id !== item.id))}><Trash2 size={15} /></button></div>)}</div><div className="cart-footer"><div><span>Total</span><strong>${total.toFixed(2)}</strong></div><button className="checkout" onClick={checkout}>Checkout <ArrowRight size={16} /></button></div></>}</aside></div>}
+    {authOpen && <div className="backdrop" onClick={() => setAuthOpen(false)}><section className="auth-panel" onClick={(event) => event.stopPropagation()}><button className="auth-close" onClick={() => setAuthOpen(false)} aria-label="Close authentication"><X /></button><p className="eyebrow">Northstar account</p><h2>{authMode === 'login' ? 'Welcome back.' : 'Join the market.'}</h2><form onSubmit={authenticate}><label>Email<input type="email" required value={authForm.email} onChange={(event) => setAuthForm({ ...authForm, email: event.target.value })} /></label><label>Password<input type="password" required minLength="8" value={authForm.password} onChange={(event) => setAuthForm({ ...authForm, password: event.target.value })} /></label><button className="checkout" type="submit">{authMode === 'login' ? <><LogIn size={16} /> Sign in</> : <><UserPlus size={16} /> Create account</>}</button></form><button className="switch-auth" onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}>{authMode === 'login' ? 'Need an account? Register' : 'Already have an account? Sign in'}</button></section></div>}
   </div>;
 }
 
