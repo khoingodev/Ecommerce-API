@@ -11,7 +11,13 @@ const headers = (token) => ({
 function App() {
   const [products, setProducts] = useState([]);
   const [query, setQuery] = useState('');
-  const [cart, setCart] = useState([]);
+  const [cart, setCart] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('cart') ?? '[]');
+    } catch {
+      return [];
+    }
+  });
   const [cartOpen, setCartOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState('login');
@@ -35,6 +41,10 @@ function App() {
       .catch(() => setMessage('Backend is unavailable. Start Spring Boot on port 8080.'))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem('cart', JSON.stringify(cart));
+  }, [cart]);
 
   const visibleProducts = useMemo(() => products.filter((product) =>
     product.name.toLowerCase().includes(query.toLowerCase().trim())), [products, query]);

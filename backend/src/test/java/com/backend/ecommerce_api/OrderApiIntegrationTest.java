@@ -105,4 +105,12 @@ class OrderApiIntegrationTest {
                 .andExpect(jsonPath("$[0].productId").value(productId))
                 .andExpect(jsonPath("$[0].quantity").value(1));
     }
+
+        @Test
+        void apiDocumentationIsPubliclyAvailable() throws Exception {
+                mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                                .get("/api-docs"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.info.title").value("Ecommerce API"));
+        }
 }
